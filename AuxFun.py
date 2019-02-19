@@ -4,14 +4,19 @@ import ipywidgets as widgets
 from IPython.display import display
 from ipywidgets import interact, interactive, fixed, interact_manual, HBox, VBox, Button, Layout,BoundedFloatText, Box, Label
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
+import random
 import networkx as nx
 import plotly.offline as py
 from plotly.offline import iplot, init_notebook_mode
 import plotly.graph_objs as go
+import plotly.figure_factory as FF
 from scipy.linalg import null_space, pinv
 from mpl_toolkits.mplot3d import Axes3D
+from scipy.spatial import Delaunay
+#from functools import reduce 
 
 def networkNodePositions(layer_sizes):
     n_layers = len(layer_sizes)
@@ -75,10 +80,10 @@ def TextBoxGrid(m,n,description=''):
     columns.append(Label(value='\('+description+'\)'))
     return HBox(columns)
 
-def trainNetwork(X,target,n,m,alpha,nitrs):
+def trainNetwork(X,target,n,alpha,nitrs):
 
     # Init network weights
-    dim = np.shape(X)[1]
+    m,dim = np.shape(X)
     w1 = np.random.random((dim,n))-0.5
     b1 = np.random.random((1,n))-0.5
     w2 = np.random.random((n,1))-0.5
@@ -128,3 +133,84 @@ def trainNetwork(X,target,n,m,alpha,nitrs):
 
     return np.stack(w1s),np.stack(b1s),np.stack(w2s),np.stack(b2s),np.stack(es),np.stack(acs)
 
+def makeFrames(w1s,b1s,w2s,b2s,es,acs,sample_density):
+    T = len(w1s)
+    cs = []
+    for t in range(T):
+        w1 = w1s[t]
+        b1 = b1s[t]
+        w2 = w2s[t]
+        b2 = b2s[t]
+        lin = np.linspace(-5,5,sample_density)
+        grid = np.stack(np.meshgrid(lin,lin),axis=-1).reshape(-1,2) # Inputs
+        a = np.dot(grid,w1)+b1 
+        y = sigma(a) # Hidden layer activity
+        b = np.dot(y,w2)+b2
+        z = sigma(b) # Output activity
+        c = 1*(z<0.5).reshape(sample_density,sample_density)
+        cs.append(c)
+    return cs
+# From Plotly website
+##########################################################################################
+
+def map_z2color(zval, colormap, vmin, vmax):
+    #map the normalized value zval to a corresponding color in the colormap
+
+    if vmin>vmax:
+        raise ValueError('incorrect relation between vmin and vmax')
+    t=(zval-vmin)/float((vmax-vmin))#normalize val
+    R, G, B, alpha=colormap(t)
+    return 'rgb('+'{:d}'.format(int(R*255+0.5))+','+'{:d}'.format(int(G*255+0.5))+\
+           ','+'{:d}'.format(int(B*255+0.5))+')'
+
+
+def tri_indices(simplices):
+    #simplices is a numpy array defining the simplices of the triangularization
+    #returns the lists of indices i, j, k
+
+    return ([triplet[c] for triplet in simplices] for c in range(3))
+
+def plotly_trisurf(x, y, z, simplices, colormap=cm.RdBu, plot_edges=None):
+    #x, y, z are lists of coordinates of the triangle vertices 
+    #simplices are the simplices that define the triangularization;
+    #simplices  is a numpy array of shape (no_triangles, 3)
+    #insert here the  type check for input data
+
+    points3D=np.vstack((x,y,z)).T
+    tri_vertices=map(lambda index: points3D[index], simplices)# vertices of the surface triangles     
+    zmean=[np.mean(tri[:,2]) for tri in tri_vertices ]# mean values of z-coordinates of 
+                                                      #triangle vertices
+    min_zmean=np.min(zmean)
+    max_zmean=np.max(zmean)
+    facecolor=[map_z2color(zz,  colormap, min_zmean, max_zmean) for zz in zmean]
+    I,J,K=tri_indices(simplices)
+
+    triangles=go.Mesh3d(x=x,
+                     y=y,
+                     z=z,
+                     facecolor=facecolor,
+                     i=I,
+                     j=J,
+                     k=K,
+                     name=''
+                    )
+
+    if plot_edges is None:# the triangle sides are not plotted 
+        return [triangles]
+    else:
+        #define the lists Xe, Ye, Ze, of x, y, resp z coordinates of edge end points for each triangle
+        #None separates data corresponding to two consecutive triangles
+        lists_coord=[[[T[k%3][c] for k in range(4)]+[ None]   for T in tri_vertices]  for c in range(3)]
+        Xe, Ye, Ze=[reduce(lambda x,y: x+y, lists_coord[k]) for k in range(3)]
+
+        #define the lines to be plotted
+        lines=go.Scatter3d(x=Xe,
+                        y=Ye,
+                        z=Ze,
+                        mode='lines',
+                        line=dict(color= 'rgb(50,50,50)', width=1.5)
+               )
+        return [triangles, lines]
+##########################################################################################
+
+	
