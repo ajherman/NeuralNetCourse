@@ -62,7 +62,18 @@ def floatSlider(value,mini,maxi,step,name,continuous=False):
    
 def intSlider(value,mini,maxi,name,continuous=False):
     return widgets.IntSlider(value=value,min=mini,max=maxi,step=1,description=name,continuous_update=continuous)
- 
+
+def makeButton(name,action,style='success'):
+    button = widgets.Button(description=name,disabled=False,button_style=style)
+    button.on_click(action)
+    return button
+
+def playSlider(name,n_steps):
+    play = widgets.Play(value=0,min=0,max=n_steps-1,step=1,description=name,disabled=False)
+    slider=intSlider(0,0,n_steps-1,"time",continuous=True)
+    widgets.jslink((play, 'value'), (slider, 'value'))
+    return play,slider
+
 def sigma(X):
     return 1./(1+np.exp(-X))
 
