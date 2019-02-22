@@ -14,6 +14,7 @@ from plotly.offline import iplot, init_notebook_mode
 import plotly.graph_objs as go
 import plotly.figure_factory as FF
 from scipy.linalg import null_space, pinv
+from scipy.interpolate import griddata
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial import Delaunay
 #from functools import reduce 
@@ -70,7 +71,7 @@ def makeButton(name,action,style='success'):
 
 def playSlider(name,n_steps):
     play = widgets.Play(value=0,min=0,max=n_steps-1,step=1,description=name,disabled=False)
-    slider=intSlider(0,0,n_steps-1,"time",continuous=True)
+    slider=intSlider(0,0,n_steps-1,"time",continuous=False)
     widgets.jslink((play, 'value'), (slider, 'value'))
     return play,slider
 
